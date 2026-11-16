@@ -7,6 +7,7 @@ use App\Models\DinasAdmin;
 use App\Models\Service;
 use DOMDocument;
 use DOMElement;
+use DOMNode;
 use DOMXPath;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
@@ -346,7 +347,7 @@ class ServiceDocumentController extends Controller
     private function fillConsiderationTable(DOMXPath $xpath, DOMElement $table, array $fields): void
     {
         foreach (['Menimbang', 'Mengingat'] as $field) {
-            $value = trim($fields[$field] ?? '');
+            $value = trim((string) ($fields[$field] ?? ''));
             if ($value === '') {
                 continue;
             }
@@ -357,21 +358,113 @@ class ServiceDocumentController extends Controller
             }
 
             $lines = preg_split('/\r\n|\r|\n/', $value) ?: [$value];
+            $cleaned = [];
+            foreach ($lines as $line) {
+                $trimmed = trim((string) $line);
+                if ($trimmed === '') {
+                    continue;
+                }
+
+                $cleaned[] = $this->wrapLongWords($this->stripListPrefix($trimmed));
+            }
+
+            if ($cleaned === []) {
+                continue;
+            }
+
+            if (count($cleaned) > count($paragraphs)) {
+                $lastParagraph = $paragraphs[array_key_last($paragraphs)];
+                $lastRow = $lastParagraph['row'];
+
+                for ($index = count($paragraphs); $index < count($cleaned); $index++) {
+                    $newRow = $lastParagraph['row']->cloneNode(true);
+                    if (! $newRow instanceof DOMElement) {
+                        throw new RuntimeException('Baris Menimbang/Mengingat tidak dapat digandakan.');
+                    }
+
+                    $this->removeCopiedParagraphIds($xpath, $newRow);
+                    $lastRow->parentNode?->insertBefore($newRow, $lastRow->nextSibling);
+                    $cells = $xpath->query('./w:tc', $newRow);
+                    if ($cells->length < 4) {
+                        throw new RuntimeException('Struktur baris Menimbang/Mengingat tidak valid.');
+                    }
+
+                    $marker = $field === 'Menimbang'
+                        ? $this->alphabeticMarker($index)
+                        : ($index + 1).'.';
+                    $this->replaceCellText($xpath, $cells->item(2), $marker);
+                    $paragraphs[] = [
+                        'row' => $newRow,
+                        'cell' => $cells->item(3),
+                    ];
+                    $lastRow = $newRow;
+                }
+            }
+
             foreach ($paragraphs as $index => $paragraph) {
-                if ($index >= count($lines)) {
+                if ($index >= count($cleaned)) {
                     $paragraph['row']->parentNode?->removeChild($paragraph['row']);
 
                     continue;
                 }
 
-                $line = $lines[$index];
-                if ($index === count($paragraphs) - 1 && count($lines) > count($paragraphs)) {
-                    $line = implode("\n", array_slice($lines, $index));
+                $line = $cleaned[$index];
+                if ($index === count($paragraphs) - 1 && count($cleaned) > count($paragraphs)) {
+                    $line = implode("\n", array_slice($cleaned, $index));
+                }
+
+                foreach ($xpath->query('./w:trPr/w:trHeight', $paragraph['row']) as $rowHeight) {
+                    $rowHeight->parentNode?->removeChild($rowHeight);
                 }
 
                 $this->replaceCellText($xpath, $paragraph['cell'], $line);
             }
         }
+    }
+
+    private function alphabeticMarker(int $index): string
+    {
+        $number = $index + 1;
+        $marker = '';
+        while ($number > 0) {
+            $number--;
+            $marker = chr(97 + ($number % 26)).$marker;
+            $number = intdiv($number, 26);
+        }
+
+        return $marker.'.';
+    }
+
+    private function removeCopiedParagraphIds(DOMXPath $xpath, DOMElement $row): void
+    {
+        $namespace = 'http://schemas.microsoft.com/office/word/2010/wordml';
+        $xpath->registerNamespace('w14', $namespace);
+        $row->removeAttributeNS($namespace, 'paraId');
+        $row->removeAttributeNS($namespace, 'textId');
+
+        foreach ($xpath->query('.//*[@w14:paraId or @w14:textId]', $row) as $element) {
+            if ($element instanceof DOMElement) {
+                $element->removeAttributeNS($namespace, 'paraId');
+                $element->removeAttributeNS($namespace, 'textId');
+            }
+        }
+    }
+
+    private function stripListPrefix(string $value): string
+    {
+        $value = trim($value);
+
+        return preg_replace('/^(?:[A-Za-z]|[0-9]+)[\)\.]\s*/u', '', $value) ?? $value;
+    }
+
+    private function wrapLongWords(string $value): string
+    {
+        $wrapped = preg_replace('/(\S{70})(?=\S)/u', "$1\n", $value);
+        if ($wrapped === null) {
+            throw new RuntimeException('Teks Menimbang/Mengingat tidak dapat diformat.');
+        }
+
+        return $wrapped;
     }
 
     /** @return list<array{row: DOMElement, cell: DOMElement}> */
@@ -390,7 +483,10 @@ class ServiceDocumentController extends Controller
                 $currentField = ucfirst($label);
             }
             if ($currentField === $wantedField && $cells->item(3) instanceof DOMElement && $row instanceof DOMElement) {
-                $paragraphs[] = ['row' => $row, 'cell' => $cells->item(3)];
+                $paragraphs[] = [
+                    'row' => $row,
+                    'cell' => $cells->item(3),
+                ];
             }
         }
 
@@ -406,12 +502,49 @@ class ServiceDocumentController extends Controller
                 continue;
             }
 
+            $this->preventTableRowSplit($xpath, $row);
+
             $label = $this->normalize($this->nodeText($xpath, $cells->item(1)));
             $field = $this->fieldForLabel($label);
             if ($field !== null) {
-                $this->replaceCellText($xpath, $cells->item(2), $fields[$field]);
+                $value = (string) ($fields[$field] ?? '');
+                $lines = preg_split('/\r\n|\r|\n/', $value) ?: [$value];
+                $contentLines = [];
+                foreach ($lines as $line) {
+                    $trimmed = trim((string) $line);
+                    if ($trimmed === '') {
+                        continue;
+                    }
+
+                    $contentLines[] = $trimmed;
+                }
+
+                $this->replaceCellText($xpath, $cells->item(2), implode("\n", $contentLines), true);
             }
         }
+    }
+
+    private function preventTableRowSplit(DOMXPath $xpath, DOMElement $row): void
+    {
+        $rowProperties = $xpath->query('./w:trPr', $row)->item(0);
+        if (! $rowProperties instanceof DOMElement) {
+            $rowProperties = $row->ownerDocument->createElementNS(self::WORD_NS, 'w:trPr');
+            $row->insertBefore($rowProperties, $row->firstChild);
+        }
+
+        if ($xpath->query('./w:cantSplit', $rowProperties)->length > 0) {
+            return;
+        }
+
+        $cannotSplit = $row->ownerDocument->createElementNS(self::WORD_NS, 'w:cantSplit');
+        $height = $xpath->query('./w:trHeight', $rowProperties)->item(0);
+        if ($height !== null) {
+            $rowProperties->insertBefore($cannotSplit, $height);
+
+            return;
+        }
+
+        $rowProperties->appendChild($cannotSplit);
     }
 
     /** @param list<array{table: DOMElement, heading: ?DOMElement}> $serviceTables */
@@ -480,37 +613,102 @@ class ServiceDocumentController extends Controller
         return $labels[$label] ?? null;
     }
 
-    private function replaceCellText(DOMXPath $xpath, DOMElement $container, string $value): void
+    private function replaceCellText(DOMXPath $xpath, DOMElement $container, string $value, bool $removeListFormatting = false): void
     {
-        $textNodes = $xpath->query('.//w:t', $container);
-        if ($textNodes->length === 0) {
+        $document = $container->ownerDocument;
+        $lines = preg_split('/\r\n|\r|\n/', $value) ?: [''];
+
+        $cellProperties = null;
+        $styleNode = null;
+        if ($container->localName === 'p') {
+            $styleNode = $xpath->query('./w:pPr', $container)->item(0)?->cloneNode(true);
+        } elseif ($container->localName === 'tc') {
+            $cellProperties = $xpath->query('./w:tcPr', $container)->item(0)?->cloneNode(true);
+            $firstParagraph = $xpath->query('./w:p', $container)->item(0);
+            $styleNode = $firstParagraph ? $xpath->query('./w:pPr', $firstParagraph)->item(0)?->cloneNode(true) : null;
+        }
+
+        if ($removeListFormatting && $styleNode instanceof DOMElement) {
+            foreach ($xpath->query('./w:numPr', $styleNode) as $numbering) {
+                $numbering->parentNode?->removeChild($numbering);
+            }
+
+            foreach ($xpath->query('./w:pStyle[@w:val="ListParagraph"]', $styleNode) as $paragraphStyle) {
+                $paragraphStyle->parentNode?->removeChild($paragraphStyle);
+            }
+
+            $justification = $xpath->query('./w:jc', $styleNode)->item(0);
+            if ($justification instanceof DOMElement) {
+                $justification->setAttributeNS(self::WORD_NS, 'w:val', 'left');
+            } else {
+                $justification = $document->createElementNS(self::WORD_NS, 'w:jc');
+                $runProperties = $xpath->query('./w:rPr', $styleNode)->item(0);
+                if ($runProperties !== null) {
+                    $styleNode->insertBefore($justification, $runProperties);
+                } else {
+                    $styleNode->appendChild($justification);
+                }
+                $justification->setAttributeNS(self::WORD_NS, 'w:val', 'left');
+            }
+        }
+
+        while ($container->firstChild) {
+            $container->removeChild($container->firstChild);
+        }
+
+        if ($container->localName === 'tc') {
+            if ($cellProperties instanceof DOMNode) {
+                $container->appendChild($cellProperties);
+            }
+
+            $paragraph = $document->createElementNS(self::WORD_NS, 'w:p');
+            if ($styleNode instanceof DOMNode) {
+                $paragraph->appendChild($styleNode->cloneNode(true));
+            }
+
+            $this->appendParagraphText($document, $paragraph, $lines);
+            $container->appendChild($paragraph);
+
             return;
         }
 
-        $firstText = $textNodes->item(0);
-        foreach ($textNodes as $textNode) {
-            $textNode->nodeValue = '';
+        if ($container->localName === 'p' && $styleNode instanceof DOMNode) {
+            $container->appendChild($styleNode->cloneNode(true));
         }
 
-        $lines = preg_split('/\r\n|\r|\n/', $value) ?: [''];
-        $firstText->nodeValue = array_shift($lines) ?? '';
-        if ($firstText->nodeValue !== '' && (str_starts_with($firstText->nodeValue, ' ') || str_ends_with($firstText->nodeValue, ' '))) {
-            $firstText->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
-        }
+        $this->appendParagraphText($document, $container, $lines);
+    }
 
-        $run = $firstText->parentNode;
-        if ($run instanceof DOMElement && $run->localName === 'r') {
-            $reference = $firstText->nextSibling;
-            foreach ($lines as $line) {
-                $break = $container->ownerDocument->createElementNS(self::WORD_NS, 'w:br');
-                $run->insertBefore($break, $reference);
-                $text = $container->ownerDocument->createElementNS(self::WORD_NS, 'w:t');
-                if ($line !== '' && (str_starts_with($line, ' ') || str_ends_with($line, ' '))) {
-                    $text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
-                }
-                $text->appendChild($container->ownerDocument->createTextNode($line));
-                $run->insertBefore($text, $reference);
+    private function appendParagraphText(DOMDocument $document, DOMElement $paragraph, array $lines): void
+    {
+        $run = null;
+
+        foreach ($lines as $index => $line) {
+            if ($index > 0) {
+                $lineBreak = $document->createElementNS(self::WORD_NS, 'w:br');
+                $run ??= $document->createElementNS(self::WORD_NS, 'w:r');
+                $run->appendChild($lineBreak);
+                $paragraph->appendChild($run);
+                $run = null;
             }
+
+            $run ??= $document->createElementNS(self::WORD_NS, 'w:r');
+            $text = $document->createElementNS(self::WORD_NS, 'w:t');
+            if ($line !== '' && (str_starts_with($line, ' ') || str_ends_with($line, ' '))) {
+                $text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+            }
+            $text->appendChild($document->createTextNode($line));
+            $run->appendChild($text);
+        }
+
+        if ($run !== null) {
+            $paragraph->appendChild($run);
+        } elseif ($paragraph->childNodes->length === 0) {
+            $emptyRun = $document->createElementNS(self::WORD_NS, 'w:r');
+            $emptyText = $document->createElementNS(self::WORD_NS, 'w:t');
+            $emptyText->appendChild($document->createTextNode(''));
+            $emptyRun->appendChild($emptyText);
+            $paragraph->appendChild($emptyRun);
         }
     }
 

@@ -346,12 +346,12 @@
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Menimbang</label>
-                    <textarea name="menimbang" id="inputMenimbang" rows="3" placeholder="Masukkan uraian Menimbang..." class="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none"></textarea>
+                    <textarea name="menimbang" id="inputMenimbang" rows="3" placeholder="Masukkan satu poin per baris; huruf a., b., c., dan seterusnya dibuat otomatis." class="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none"></textarea>
                 </div>
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Mengingat</label>
-                    <textarea name="mengingat" id="inputMengingat" rows="3" placeholder="Masukkan uraian Mengingat..." class="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none"></textarea>
+                    <textarea name="mengingat" id="inputMengingat" rows="3" placeholder="Masukkan satu dasar hukum per baris; nomor 1., 2., 3., dan seterusnya dibuat otomatis." class="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none"></textarea>
                 </div>
 
                 <div class="border-b border-slate-200 pt-4 pb-2 font-bold text-slate-800 text-sm">
