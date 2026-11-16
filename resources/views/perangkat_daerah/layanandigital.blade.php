@@ -159,9 +159,14 @@
                     <div class="flex items-center gap-3">
                         <select class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 bg-white"><option>Semua Kategori</option></select>
                     </div>
-                    <button onclick="openModalTambah()" class="bg-[#052e23] hover:bg-emerald-900 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-sm">
-                        <i class="fa-solid fa-plus"></i><span>Tambah Layanan</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <a href="{{ route('perangkat-daerah.layanandigital.document-all') }}" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-sm">
+                            <i class="fa-solid fa-file-arrow-down"></i><span>Unduh Semua SLA</span>
+                        </a>
+                        <button onclick="openModalTambah()" class="bg-[#052e23] hover:bg-emerald-900 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-sm">
+                            <i class="fa-solid fa-plus"></i><span>Tambah Layanan</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">

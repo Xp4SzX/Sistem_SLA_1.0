@@ -46,7 +46,25 @@ class ServiceDocumentController extends Controller
         return $this->generateDocument($service, true);
     }
 
-    private function generateDocument(Service $service, bool $singleService = false): BinaryFileResponse|Response
+    public function downloadAllForDepartment(): BinaryFileResponse|Response
+    {
+        $user = request()->user();
+        abort_unless($user?->role === 'admin_dinas', 403);
+
+        $dinasAdmin = DinasAdmin::where('email', $user->email)->first();
+        $departmentName = $dinasAdmin?->nama_dinas ?? ($user->name ?? 'Pemerintah Daerah');
+        $services = Service::where('department_name', $departmentName)
+            ->latest()
+            ->get()
+            ->all();
+
+        abort_unless($services !== [], 404, 'Belum ada layanan digital untuk diunduh.');
+
+        return $this->generateDocument($services);
+    }
+
+    /** @param Service|list<Service> $service */
+    private function generateDocument(Service|array $service, bool $singleService = false): BinaryFileResponse|Response
     {
         $template = resource_path('templates/sk-penetapan-standar-pelayanan-2026.docx');
         abort_unless(is_file($template), 404, 'Template SK tidak ditemukan.');
@@ -69,9 +87,13 @@ class ServiceDocumentController extends Controller
 
             $this->validateDocx($docxPath);
 
+            $downloadName = $service instanceof Service
+                ? 'SK-Standar-Pelayanan-'.Str::slug($service->name).'.docx'
+                : 'SK-Standar-Pelayanan-Seluruh-Layanan-'.Str::slug($service[0]->department_name ?? 'Perangkat-Daerah').'.docx';
+
             $response = response()->download(
                 $docxPath,
-                'SK-Standar-Pelayanan-'.Str::slug($service->name).'.docx',
+                $downloadName,
                 ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
             )->deleteFileAfterSend(true);
             $downloadReady = true;
@@ -115,8 +137,16 @@ class ServiceDocumentController extends Controller
         }
     }
 
-    private function fillTemplate(string $template, string $destination, Service $service, bool $singleService = false): void
+    /** @param Service|list<Service> $service */
+    private function fillTemplate(string $template, string $destination, Service|array $service, bool $singleService = false): void
     {
+        $isBulk = is_array($service);
+        $services = $isBulk ? $service : [$service];
+        if ($services === []) {
+            throw new RuntimeException('Tidak ada layanan untuk dimasukkan ke dalam dokumen.');
+        }
+        $primaryService = $services[0];
+
         if (! copy($template, $destination)) {
             throw new RuntimeException('Template SK tidak dapat disalin.');
         }
@@ -145,7 +175,7 @@ class ServiceDocumentController extends Controller
                 throw new RuntimeException('Isi utama dokumen SK tidak ditemukan.');
             }
 
-            $fields = $this->serviceFields($service);
+            $fields = $this->serviceFields($primaryService);
             $serviceTables = [];
             $precedingHeading = null;
             foreach ($body->childNodes as $node) {
@@ -157,6 +187,12 @@ class ServiceDocumentController extends Controller
                     $paragraphText = trim($this->nodeText($xpath, $node));
                     if ($singleService && str_contains($this->normalize($paragraphText), 'terdiridari4layanan')) {
                         $this->replaceContainerText($xpath, $node, 'Standar Pelayanan yang ditetapkan adalah sebagai berikut:');
+                    } elseif ($isBulk && str_contains($this->normalize($paragraphText), 'terdiridari4layanan')) {
+                        $this->replaceContainerText(
+                            $xpath,
+                            $node,
+                            preg_replace('/terdiri dari 4 layanan/i', 'terdiri dari '.count($services).' layanan', $paragraphText) ?? $paragraphText
+                        );
                     }
                     if ($paragraphText !== '') {
                         $precedingHeading = $node;
@@ -176,31 +212,39 @@ class ServiceDocumentController extends Controller
                 }
             }
 
-            $match = $this->findMatchingServiceTable($xpath, $serviceTables, $service, $singleService);
-            if ($match !== null) {
-                if ($singleService) {
-                    foreach ($serviceTables as $index => $candidate) {
-                        if ($index === $match) {
-                            continue;
+            if ($isBulk) {
+                $serviceNames = array_map(static fn (Service $item): string => $item->name, $services);
+                $this->fillServiceSummary($xpath, $body, $serviceNames);
+                $this->fillDecisionServiceList($xpath, $body, $serviceNames);
+                $serviceTables = $this->resizeServiceTables($xpath, $body, $serviceTables, count($services));
+                $this->fillAllServiceTables($xpath, $serviceTables, $services);
+            } else {
+                $match = $this->findMatchingServiceTable($xpath, $serviceTables, $primaryService, $singleService);
+                if ($match !== null) {
+                    if ($singleService) {
+                        foreach ($serviceTables as $index => $candidate) {
+                            if ($index === $match) {
+                                continue;
+                            }
+                            if ($candidate['heading'] instanceof DOMElement) {
+                                $candidate['heading']->parentNode?->removeChild($candidate['heading']);
+                            }
+                            $candidate['table']->parentNode?->removeChild($candidate['table']);
                         }
-                        if ($candidate['heading'] instanceof DOMElement) {
-                            $candidate['heading']->parentNode?->removeChild($candidate['heading']);
-                        }
-                        $candidate['table']->parentNode?->removeChild($candidate['table']);
+
+                        $this->fillServiceSummary($xpath, $body, [$primaryService->name]);
+                        $this->fillDecisionServiceList($xpath, $body, [$primaryService->name]);
                     }
 
-                    $this->removeServiceSummary($xpath, $body, $service->name);
-                    $this->fillDecisionServiceList($xpath, $body, $service->name);
-                }
-
-                $selected = $serviceTables[$match];
-                $this->fillServiceTable($xpath, $selected['table'], $fields);
-                if ($selected['heading'] instanceof DOMElement) {
-                    $this->replaceContainerText($xpath, $selected['heading'], $service->name);
+                    $selected = $serviceTables[$match];
+                    $this->fillServiceTable($xpath, $selected['table'], $fields);
+                    if ($selected['heading'] instanceof DOMElement) {
+                        $this->replaceContainerText($xpath, $selected['heading'], $primaryService->name);
+                    }
                 }
             }
 
-            if ($singleService) {
+            if ($singleService || $isBulk) {
                 $this->replaceDocumentDate($xpath, $body);
             }
 
@@ -213,17 +257,12 @@ class ServiceDocumentController extends Controller
         }
     }
 
-    private function removeServiceSummary(DOMXPath $xpath, DOMElement $body, string $serviceName): void
+    /** @param list<string> $serviceNames */
+    private function fillServiceSummary(DOMXPath $xpath, DOMElement $body, array $serviceNames): void
     {
-        $serviceNames = [
-            'pengajuanpembangunanataupengembanganaplikasi',
-            'layananhosting',
-            'layanansubdomain',
-            'pelayananinformasipublik',
-        ];
-        $summaryNodes = [];
-        $inServiceList = false;
-        $keptService = false;
+        $summaryParagraphs = [];
+        $listStarted = false;
+        $nextSection = null;
 
         foreach ($body->childNodes as $node) {
             if (! $node instanceof DOMElement || $node->localName !== 'p') {
@@ -231,46 +270,54 @@ class ServiceDocumentController extends Controller
             }
 
             $text = $this->normalize($this->nodeText($xpath, $node));
-            if (! $inServiceList && str_contains($text, 'adalahsebagaiberikut')) {
-                $inServiceList = true;
+            if (! $listStarted && str_contains($text, 'adalahsebagaiberikut')) {
+                $listStarted = true;
 
                 continue;
             }
 
-            if (! $inServiceList) {
+            if (! $listStarted) {
                 continue;
             }
 
             if ($text === 'standarpelayanan') {
+                $nextSection = $node;
                 break;
             }
 
-            if ($text === '') {
-                $summaryNodes[] = $node;
-
-                continue;
+            if ($text !== '') {
+                $summaryParagraphs[] = $node;
             }
-
-            if (in_array($text, $serviceNames, true)) {
-                if (! $keptService) {
-                    $this->replaceContainerText($xpath, $node, $serviceName);
-                    $keptService = true;
-                } else {
-                    $summaryNodes[] = $node;
-                }
-
-                continue;
-            }
-
-            break;
         }
 
-        foreach ($summaryNodes as $node) {
-            $body->removeChild($node);
+        if ($summaryParagraphs === [] || ! $nextSection instanceof DOMElement) {
+            throw new RuntimeException('Daftar layanan pada template SK tidak ditemukan.');
+        }
+
+        while (count($summaryParagraphs) < count($serviceNames)) {
+            $source = $summaryParagraphs[array_key_last($summaryParagraphs)];
+            $copy = $source->cloneNode(true);
+            if (! $copy instanceof DOMElement) {
+                throw new RuntimeException('Baris daftar layanan pada template tidak dapat digandakan.');
+            }
+
+            $this->removeCopiedParagraphIds($xpath, $copy);
+            $body->insertBefore($copy, $nextSection);
+            $summaryParagraphs[] = $copy;
+        }
+
+        while (count($summaryParagraphs) > count($serviceNames)) {
+            $paragraph = array_pop($summaryParagraphs);
+            $paragraph->parentNode?->removeChild($paragraph);
+        }
+
+        foreach ($serviceNames as $index => $serviceName) {
+            $this->replaceContainerText($xpath, $summaryParagraphs[$index], $serviceName);
         }
     }
 
-    private function fillDecisionServiceList(DOMXPath $xpath, DOMElement $body, string $serviceName): void
+    /** @param list<string> $serviceNames */
+    private function fillDecisionServiceList(DOMXPath $xpath, DOMElement $body, array $serviceNames): void
     {
         foreach ($xpath->query('./w:tbl/w:tr', $body) as $row) {
             $cells = $xpath->query('./w:tc', $row);
@@ -284,10 +331,30 @@ class ServiceDocumentController extends Controller
                 return;
             }
 
-            $this->replaceContainerText($xpath, $paragraphs->item(1), $serviceName);
-            for ($index = $paragraphs->length - 1; $index > 1; $index--) {
-                $paragraph = $paragraphs->item($index);
+            $serviceParagraphs = [];
+            for ($index = 1; $index < $paragraphs->length; $index++) {
+                $serviceParagraphs[] = $paragraphs->item($index);
+            }
+
+            while (count($serviceParagraphs) < count($serviceNames)) {
+                $source = $serviceParagraphs[array_key_last($serviceParagraphs)];
+                $copy = $source->cloneNode(true);
+                if (! $copy instanceof DOMElement) {
+                    throw new RuntimeException('Daftar layanan pada diktum tidak dapat digandakan.');
+                }
+
+                $this->removeCopiedParagraphIds($xpath, $copy);
+                $source->parentNode?->insertBefore($copy, $source->nextSibling);
+                $serviceParagraphs[] = $copy;
+            }
+
+            while (count($serviceParagraphs) > count($serviceNames)) {
+                $paragraph = array_pop($serviceParagraphs);
                 $paragraph->parentNode?->removeChild($paragraph);
+            }
+
+            foreach ($serviceNames as $index => $serviceName) {
+                $this->replaceContainerText($xpath, $serviceParagraphs[$index], $serviceName);
             }
 
             return;
@@ -524,6 +591,79 @@ class ServiceDocumentController extends Controller
         }
     }
 
+    /**
+     * @param list<array{table: DOMElement, heading: ?DOMElement}> $serviceTables
+     * @return list<array{table: DOMElement, heading: ?DOMElement}>
+     */
+    private function resizeServiceTables(DOMXPath $xpath, DOMElement $body, array $serviceTables, int $count): array
+    {
+        if ($serviceTables === []) {
+            throw new RuntimeException('Tabel standar pelayanan tidak ditemukan pada template SK.');
+        }
+
+        while (count($serviceTables) > $count) {
+            $unused = array_pop($serviceTables);
+            if ($unused['heading'] instanceof DOMElement) {
+                $unused['heading']->parentNode?->removeChild($unused['heading']);
+            }
+            $unused['table']->parentNode?->removeChild($unused['table']);
+        }
+
+        while (count($serviceTables) < $count) {
+            $source = $serviceTables[array_key_last($serviceTables)];
+            $newTable = $source['table']->cloneNode(true);
+            if (! $newTable instanceof DOMElement) {
+                throw new RuntimeException('Tabel standar pelayanan pada template tidak dapat digandakan.');
+            }
+
+            $newHeading = null;
+            if ($source['heading'] instanceof DOMElement) {
+                $headingCopy = $source['heading']->cloneNode(true);
+                if (! $headingCopy instanceof DOMElement) {
+                    throw new RuntimeException('Judul layanan pada template tidak dapat digandakan.');
+                }
+                $this->removeCopiedParagraphIds($xpath, $headingCopy);
+                $newHeading = $headingCopy;
+            }
+
+            $this->removeCopiedParagraphIds($xpath, $newTable);
+            $insertBefore = $source['table']->nextSibling;
+            if ($newHeading instanceof DOMElement) {
+                $body->insertBefore($newHeading, $insertBefore);
+            }
+            $body->insertBefore($newTable, $insertBefore);
+            $serviceTables[] = ['table' => $newTable, 'heading' => $newHeading];
+        }
+
+        return $serviceTables;
+    }
+
+    /**
+     * @param list<array{table: DOMElement, heading: ?DOMElement}> $serviceTables
+     * @param list<Service> $services
+     */
+    private function fillAllServiceTables(DOMXPath $xpath, array $serviceTables, array $services): void
+    {
+        $availableIndexes = array_keys($serviceTables);
+
+        foreach ($services as $serviceIndex => $service) {
+            $match = $this->findMatchingServiceTable($xpath, $serviceTables, $service, false, false);
+            if ($match === null || ! in_array($match, $availableIndexes, true)) {
+                $match = $availableIndexes[0] ?? null;
+            }
+            if ($match === null) {
+                throw new RuntimeException('Tidak ada tabel standar pelayanan untuk layanan '.$service->name.'.');
+            }
+
+            $availableIndexes = array_values(array_diff($availableIndexes, [$match]));
+            $section = $serviceTables[$match];
+            $this->fillServiceTable($xpath, $section['table'], $this->serviceFields($service));
+            if ($section['heading'] instanceof DOMElement) {
+                $this->replaceCellText($xpath, $section['heading'], ($serviceIndex + 1).'. '.$service->name, true);
+            }
+        }
+    }
+
     private function preventTableRowSplit(DOMXPath $xpath, DOMElement $row): void
     {
         $rowProperties = $xpath->query('./w:trPr', $row)->item(0);
@@ -548,8 +688,13 @@ class ServiceDocumentController extends Controller
     }
 
     /** @param list<array{table: DOMElement, heading: ?DOMElement}> $serviceTables */
-    private function findMatchingServiceTable(DOMXPath $xpath, array $serviceTables, Service $service, bool $singleService = false): ?int
-    {
+    private function findMatchingServiceTable(
+        DOMXPath $xpath,
+        array $serviceTables,
+        Service $service,
+        bool $singleService = false,
+        bool $fallback = true
+    ): ?int {
         $serviceName = $this->normalize($service->name);
         $serviceCode = $this->normalize($service->service_code ?? '');
         $serviceIdentity = $serviceName.$serviceCode;
@@ -586,7 +731,7 @@ class ServiceDocumentController extends Controller
             }
         }
 
-        return $serviceTables === [] ? null : 0;
+        return $fallback && $serviceTables !== [] ? 0 : null;
     }
 
     private function fieldForLabel(string $label): ?string

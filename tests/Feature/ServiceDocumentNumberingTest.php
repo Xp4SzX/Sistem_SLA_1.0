@@ -12,6 +12,72 @@ use ZipArchive;
 
 class ServiceDocumentNumberingTest extends TestCase
 {
+    public function test_bulk_export_keeps_shared_legal_sections_and_includes_every_service(): void
+    {
+        $template = base_path('resources/templates/sk-penetapan-standar-pelayanan-2026.docx');
+        $output = sys_get_temp_dir().'/sla-bulk-'.uniqid('', true).'.docx';
+        $services = [];
+
+        for ($index = 1; $index <= 5; $index++) {
+            $services[] = new Service([
+                'name' => 'Layanan Bulk '.$index,
+                'department_name' => 'Dinas Bulk',
+                'service_code' => 'BULK-'.$index,
+                'menimbang' => $index === 1 ? 'a. Pertimbangan Bersama' : 'a. Pertimbangan Berbeda '.$index,
+                'mengingat' => $index === 1 ? '1. Dasar Bersama' : '1. Dasar Berbeda '.$index,
+                'dasar_hukum' => 'Dasar hukum layanan '.$index,
+            ]);
+        }
+
+        try {
+            $method = new ReflectionMethod(ServiceDocumentController::class, 'fillTemplate');
+            $method->setAccessible(true);
+            $method->invoke(new ServiceDocumentController(), $template, $output, $services, false);
+
+            $zip = new ZipArchive();
+            $this->assertTrue($zip->open($output) === true);
+            $xml = $zip->getFromName('word/document.xml');
+            $zip->close();
+            $this->assertNotFalse($xml);
+
+            $document = new DOMDocument();
+            $this->assertTrue($document->loadXML($xml));
+            $xpath = new DOMXPath($document);
+            $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+            $serviceTables = $xpath->query('//w:tbl[w:tr[1]/w:tc[1][normalize-space(.)="NO"] and w:tr[1]/w:tc[2][normalize-space(.)="KOMPONEN"]]');
+
+            $this->assertSame(5, $serviceTables->length);
+            $this->assertStringContainsString('Layanan Bulk 5', $document->textContent);
+            $this->assertStringContainsString('Dasar hukum layanan 5', $document->textContent);
+            $this->assertStringContainsString('Pertimbangan Bersama', $document->textContent);
+            $this->assertStringContainsString('Dasar Bersama', $document->textContent);
+            $this->assertStringNotContainsString('Pertimbangan Berbeda', $document->textContent);
+            $this->assertStringNotContainsString('Dasar Berbeda', $document->textContent);
+            $this->assertSame(1, $xpath->query('//w:tbl[w:tr[1]/w:tc[1][contains(., "Menimbang")]]')->length);
+
+            $numberedHeadings = [];
+            foreach ($xpath->query('//w:p') as $paragraph) {
+                $text = trim($paragraph->textContent);
+                if (preg_match('/^[1-5]\. Layanan Bulk [1-5]$/', $text) === 1) {
+                    $numberedHeadings[] = $text;
+                    $this->assertSame(0, $xpath->query('./w:pPr/w:numPr', $paragraph)->length);
+                }
+            }
+
+            $this->assertSame([
+                '1. Layanan Bulk 1',
+                '2. Layanan Bulk 2',
+                '3. Layanan Bulk 3',
+                '4. Layanan Bulk 4',
+                '5. Layanan Bulk 5',
+            ], $numberedHeadings);
+        } finally {
+            if (is_file($output)) {
+                unlink($output);
+            }
+        }
+    }
+
     public function test_service_table_keeps_numbers_entered_in_the_form(): void
     {
         $template = base_path('resources/templates/sk-penetapan-standar-pelayanan-2026.docx');
@@ -27,7 +93,7 @@ class ServiceDocumentNumberingTest extends TestCase
         try {
             $method = new ReflectionMethod(ServiceDocumentController::class, 'fillTemplate');
             $method->setAccessible(true);
-            $method->invoke(new ServiceDocumentController(), $template, $output, $service, false);
+            $method->invoke(new ServiceDocumentController(), $template, $output, $service, true);
 
             $zip = new ZipArchive();
             $this->assertTrue($zip->open($output) === true);

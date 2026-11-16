@@ -133,6 +133,7 @@ Route::prefix('perangkat-daerah')->name('perangkat-daerah.')->middleware(['auth'
     Route::post('/layanandigital', [PerangkatDaerahServiceController::class, 'store'])->name('layanandigital.store');
     Route::put('/layanandigital/{id}', [PerangkatDaerahServiceController::class, 'update'])->name('layanandigital.update');
     Route::delete('/layanandigital/{id}', [PerangkatDaerahServiceController::class, 'destroy'])->name('layanandigital.destroy');
+    Route::get('/layanandigital/document/all', [ServiceDocumentController::class, 'downloadAllForDepartment'])->name('layanandigital.document-all');
     Route::get('/layanandigital/{service}/document', [ServiceDocumentController::class, 'downloadForDepartment'])->name('layanandigital.document');
 
     // 4. Kelola Teknisi (Fitur Baru Admin Dinas)
