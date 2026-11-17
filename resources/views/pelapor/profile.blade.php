@@ -140,13 +140,13 @@
         id="department_name"
         type="text"
         name="department_name"
-        value="{{ old('department_name', $user->department->name ?? '') }}"
+        value="{{ old('department_name', $user->department_name ?? '') }}"
         placeholder="Contoh: Dinas Komunikasi dan Informatika"
         class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
     >
 
     <p class="mt-1 text-[11px] text-slate-400">
-        Kosongkan jika tidak ada, atau sesuaikan dengan data departemen yang tersedia.
+        Nama perangkat daerah bersifat opsional.
     </p>
 
     @error('department_name')
