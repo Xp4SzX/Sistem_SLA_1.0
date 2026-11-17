@@ -7,6 +7,7 @@
         @vite(['resources/js/admin/layanandigital.js'])
         <script>
             window.storeRoute = "{{ route('admin.layanandigital.store') }}";
+            window.updateRouteTemplate = @json(route('admin.layanandigital.update', ['id' => '__ID__']));
             @if(isset($services) && count($services) > 0)
                 window.firstServiceData = {
                     id: "{{ $services[0]->id }}",
@@ -354,6 +355,15 @@
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Logo / Gambar Layanan</label>
                     <input type="file" name="image" id="inputImage" accept="image/*" class="w-full border border-slate-300 rounded-lg p-2 text-slate-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">File SOP <span class="text-[10px] text-slate-400 font-normal">(Opsional, PDF/DOC/DOCX)</span></label>
+                    <input type="file" name="sop_file" id="inputSopFile" accept=".pdf,.doc,.docx" class="w-full border border-slate-300 rounded-lg p-2 text-slate-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                    <p id="currentSopFileContainer" class="hidden mt-2 text-[11px] text-slate-500">
+                        SOP saat ini:
+                        <a id="currentSopFileLink" href="#" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:underline"></a>
+                    </p>
                 </div>
 
                 <div class="border-b border-slate-200 pt-4 pb-2 font-bold text-slate-800 text-sm">

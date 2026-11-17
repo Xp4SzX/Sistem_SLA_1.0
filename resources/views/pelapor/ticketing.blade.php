@@ -178,6 +178,13 @@
                                         'diff_hours' => $diffJam - $limitJam,
                                         'technician' => $ticket->technician ?? 'Belum Ditugaskan',
                                         'technician_notes' => $ticket->technician_notes ?? 'Belum ada catatan penanganan dari teknisi.',
+                                        'report_attachments' => $ticket->attachments
+                                            ->reject(fn ($attachment) => str_starts_with($attachment->file_type ?? '', 'image/'))
+                                            ->map(fn ($attachment) => [
+                                                'name' => $attachment->file_name,
+                                                'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($attachment->file_path),
+                                            ])
+                                            ->values(),
                                         
                                         /* LAMPIRAN BUKTI DARI TEKNISI */
                                         'attachment' => $ticket->technician_file ?? null
@@ -366,6 +373,18 @@
                     </div>
                     <p class="text-xs text-slate-600 leading-relaxed" x-text="selectedTicket?.technician_notes"></p>
                 </div>
+
+                <template x-if="selectedTicket?.report_attachments?.length">
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lampiran Tiket</h4>
+                        <template x-for="attachment in selectedTicket.report_attachments" :key="attachment.url">
+                            <a :href="attachment.url" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800 hover:underline">
+                                <i class="fa-solid fa-paperclip"></i>
+                                <span x-text="attachment.name || 'Lihat lampiran'"></span>
+                            </a>
+                        </template>
+                    </div>
+                </template>
 
                 <!-- Box Lampiran / Berkas Bukti Penanganan Teknisi -->
                 <template x-if="selectedTicket?.attachment">

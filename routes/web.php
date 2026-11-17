@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
 
     // Informasi SLA & Profile
     Route::get('/sla-sop', [SlaSopController::class, 'index'])->name('sla-sop');
+    Route::get('/sla-sop/{service}/download', [SlaSopController::class, 'download'])->name('sla-sop.download');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });
@@ -99,7 +100,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // Kelola Helpdesk & Tiket Lintas Dinas
     Route::get('/ticketing', [AdminHelpdeskController::class, 'index'])->name('ticketing');
     Route::get('/tickets/{id}', [AdminHelpdeskController::class, 'show'])->name('tickets.show');
-    Route::match(['post', 'put'], '/tickets/{id}/update-status', [AdminHelpdeskController::class, 'updateStatus'])->name('tickets.update-status');
 
     // Monitoring SLA Keseluruhan
     Route::get('/sla-monitoring', [AdminSlaMonitoringController::class, 'index'])->name('sla-monitoring');

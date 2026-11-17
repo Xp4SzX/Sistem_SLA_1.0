@@ -18,6 +18,8 @@
                 document.getElementById('formLayanan').action = "{{ route('perangkat-daerah.layanandigital.store') }}";
                 document.getElementById('formLayanan').reset();
                 document.getElementById('inputImage').value = '';
+                document.getElementById('inputSopFile').value = '';
+                document.getElementById('currentSopFileContainer').classList.add('hidden');
                 document.getElementById('modalFormLayanan').classList.remove('hidden');
                 document.getElementById('modalFormLayanan').classList.add('flex');
             }
@@ -33,6 +35,19 @@
                 document.getElementById('inputType').value = item.type || 'pelayanan_publik';
                 document.getElementById('inputStatus').value = item.status || 'active';
                 document.getElementById('inputImage').value = '';
+                document.getElementById('inputSopFile').value = '';
+
+                const currentSopFileContainer = document.getElementById('currentSopFileContainer');
+                const currentSopFileLink = document.getElementById('currentSopFileLink');
+                if (item.sop_file) {
+                    currentSopFileLink.href = `/storage/${item.sop_file}`;
+                    currentSopFileLink.textContent = item.sop_file.split('/').pop();
+                    currentSopFileContainer.classList.remove('hidden');
+                } else {
+                    currentSopFileContainer.classList.add('hidden');
+                    currentSopFileLink.removeAttribute('href');
+                    currentSopFileLink.textContent = '';
+                }
 
                 document.getElementById('inputMenimbang').value = item.menimbang || '';
                 document.getElementById('inputMengingat').value = item.mengingat || '';
@@ -347,6 +362,19 @@
                            id="inputImage" 
                            accept="image/*" 
                            class="w-full border border-slate-300 rounded-lg p-2 text-slate-600 bg-white file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-[#052e23] hover:file:bg-emerald-100 cursor-pointer focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">File SOP <span class="text-[10px] text-slate-400 font-normal">(Opsional, PDF/DOC/DOCX)</span></label>
+                    <input type="file"
+                           name="sop_file"
+                           id="inputSopFile"
+                           accept=".pdf,.doc,.docx"
+                           class="w-full border border-slate-300 rounded-lg p-2 text-slate-600 bg-white file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-[#052e23] hover:file:bg-emerald-100 cursor-pointer focus:outline-none">
+                    <p id="currentSopFileContainer" class="hidden mt-2 text-[11px] text-slate-500">
+                        SOP saat ini:
+                        <a id="currentSopFileLink" href="#" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:underline"></a>
+                    </p>
                 </div>
 
                 <div>

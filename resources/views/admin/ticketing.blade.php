@@ -204,9 +204,11 @@
                                                 'title' => $ticket->title,
                                                 'description' => $ticket->description,
                                                 'service' => ['name' => $ticket->service->name ?? 'Layanan Umum'],
+                                                'department_name' => $ticket->service->department_name ?? $ticket->user->department_name ?? '-',
                                                 'priority' => $ticket->priority,
                                                 'status' => $ticket->status,
                                                 'technician' => $ticket->technician,
+                                                'technician_notes' => $ticket->technician_notes,
                                                 'attachments' => $ticket->attachments,
                                                 'image' => $ticket->image,
                                                 'attachment' => $ticket->attachment,
@@ -215,7 +217,7 @@
                                             data-pelapor="{{ $ticket->user->name ?? 'Pelapor' }}"
                                             onclick="handleKelolaBtn(this)"
                                             class="px-3 py-1.5 bg-[#052e23] hover:bg-emerald-900 text-white rounded-lg font-semibold text-[11px] shadow-sm transition">
-                                            Kelola
+                                            Detail Ticketing
                                         </button>
                                     </td>
                                 </tr>
@@ -231,26 +233,23 @@
         </div>
     </div>
 
-    <!-- MODAL POP UP TINDAK LANJUT TIKET -->
+    <!-- MODAL DETAIL TIKET -->
     <div id="modalTindakLanjut" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden transition-all max-h-[90vh] overflow-y-auto">
             <div class="bg-[#052e23] px-6 py-4 flex justify-between items-center text-white sticky top-0 z-10">
                 <div>
                     <h3 id="modalTicketNo" class="font-bold text-lg">SLA-00000</h3>
-                    <p class="text-xs text-emerald-200">Tindak Lanjut Tiket</p>
+                    <p class="text-xs text-emerald-200">Detail Tiket</p>
                 </div>
                 <button onclick="closeModal()" class="text-white hover:text-slate-200 text-xl font-bold">&times;</button>
             </div>
 
-            <!-- FORM TINDAK LANJUT -->
-            <form id="formTindakLanjut" method="POST" enctype="multipart/form-data" class="p-6 space-y-4 text-xs">
-                @csrf
-                @method('PUT')
-                
+            <div class="p-6 space-y-4 text-xs">
                 <div class="border rounded-lg p-4 bg-slate-50 flex justify-between items-center">
                     <div>
                         <h4 id="modalLayanan" class="font-bold text-slate-800">Layanan Digital</h4>
                         <p class="text-xs text-slate-500">Dilaporkan Oleh: <span id="modalPelapor" class="font-semibold text-slate-700">-</span></p>
+                        <p class="text-xs text-slate-500 mt-1">Perangkat Daerah: <span id="modalPerangkatDaerah" class="font-semibold text-slate-700">-</span></p>
                     </div>
                     <span id="modalPrioritas" class="bg-amber-100 text-amber-800 text-xs px-3 py-1 rounded-lg font-bold">MEDIUM</span>
                 </div>
@@ -274,30 +273,23 @@
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Nama Teknisi</label>
-                    <input type="text" name="technician" id="modalTechnician" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-slate-700" placeholder="Masukkan nama teknisi..." required>
+                    <div id="modalTechnician" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">-</div>
                 </div>
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Status Tiket</label>
-                    <select name="status" id="modalStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-700">
-                        <option value="submitted">Submitted</option>
-                        <option value="verified">Verified</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
-                    </select>
+                    <div id="modalStatus" class="p-3 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-700">-</div>
                 </div>
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Catatan Penanganan</label>
-                    <textarea name="catatan" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-slate-700" placeholder="Tuliskan catatan penanganan..."></textarea>
+                    <div id="modalCatatan" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 min-h-15 whitespace-pre-line">-</div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-lg font-semibold text-slate-600 hover:bg-slate-100">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-[#022C22] text-white rounded-lg font-bold hover:bg-emerald-900 transition shadow-sm">Simpan Perubahan</button>
+                <div class="flex justify-end pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-[#022C22] text-white rounded-lg font-bold hover:bg-emerald-900 transition shadow-sm">Tutup</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -311,15 +303,15 @@
                 document.getElementById('modalTicketNo').innerText = ticket.ticket_no || 'SLA-' + ticket.id;
                 document.getElementById('modalLayanan').innerText = ticket.service && ticket.service.name ? ticket.service.name : 'Layanan Digital';
                 document.getElementById('modalPelapor').innerText = pelapor || 'Pelapor';
+                document.getElementById('modalPerangkatDaerah').innerText = ticket.department_name || '-';
                 document.getElementById('modalPrioritas').innerText = (ticket.priority || 'MEDIUM').toUpperCase();
                 
                 const deskripsiText = ticket.description || ticket.body || ticket.content || 'Tidak ada deskripsi yang diberikan.';
                 document.getElementById('modalDeskripsi').innerText = deskripsiText;
 
-                document.getElementById('modalTechnician').value = ticket.technician || '';
-                document.getElementById('modalStatus').value = (ticket.status || 'in_progress').toLowerCase();
-                
-                document.getElementById('formTindakLanjut').action = `/admin/tickets/${ticket.id}/update-status`;
+                document.getElementById('modalTechnician').innerText = ticket.technician || 'Belum ditugaskan';
+                document.getElementById('modalStatus').innerText = (ticket.status || '-').replace(/_/g, ' ').toUpperCase();
+                document.getElementById('modalCatatan').innerText = ticket.technician_notes || 'Belum ada catatan penanganan.';
 
                 const ticketImage = document.getElementById('modalTicketImage');
                 const imageContainer = document.getElementById('modalImageContainer');

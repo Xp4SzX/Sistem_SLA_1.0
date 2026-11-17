@@ -47,6 +47,7 @@ window.openModalTambah = function() {
 
     form.reset();
     document.getElementById('inputType').value = 'pengajuan_layanan'; // Default pilihan baru
+    document.getElementById('currentSopFileContainer').classList.add('hidden');
 
     document.getElementById('modalFormLayanan').classList.remove('hidden');
     document.getElementById('modalFormLayanan').classList.add('flex');
@@ -70,6 +71,19 @@ window.openModalEdit = function(item) {
     document.getElementById('inputKode').value = item.service_code || '';
     document.getElementById('inputDepartment').value = item.department ? item.department.name : (item.department_name || '');
     document.getElementById('inputType').value = item.type || 'pengajuan_layanan';
+    document.getElementById('inputSopFile').value = '';
+
+    const currentSopFileContainer = document.getElementById('currentSopFileContainer');
+    const currentSopFileLink = document.getElementById('currentSopFileLink');
+    if (item.sop_file) {
+        currentSopFileLink.href = `/storage/${item.sop_file}`;
+        currentSopFileLink.textContent = item.sop_file.split('/').pop();
+        currentSopFileContainer.classList.remove('hidden');
+    } else {
+        currentSopFileContainer.classList.add('hidden');
+        currentSopFileLink.removeAttribute('href');
+        currentSopFileLink.textContent = '';
+    }
     
     // 14 Komponen Standar Pelayanan (SLA)
     document.getElementById('inputDasarHukum').value = item.dasar_hukum || '';

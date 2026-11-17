@@ -4,9 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
-use App\Models\TicketLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class HelpdeskController extends Controller
@@ -118,35 +116,4 @@ class HelpdeskController extends Controller
         ));
     }
 
-    public function updateStatus(Request $request, $id)
-    {
-        $ticket = Ticket::findOrFail($id);
-
-        $request->validate([
-            'status'     => 'required|string',
-            'technician' => 'nullable|string|max:255',
-            'catatan'    => 'nullable|string'
-        ]);
-
-        $oldStatus = $ticket->status;
-        $newStatus = strtolower($request->status);
-
-        // Update status dan nama teknisi ke database
-        $ticket->update([
-            'status'     => $newStatus,
-            'technician' => $request->technician,
-        ]);
-
-        if ($request->filled('catatan') || $request->filled('technician')) {
-            TicketLog::create([
-                'ticket_id'  => $ticket->id,
-                'actor_id'   => Auth::id(),
-                'old_status' => $oldStatus,
-                'new_status' => $newStatus,
-                'catatan'    => $request->catatan ?? 'Memperbarui status dan penugasan teknisi.',
-            ]);
-        }
-
-        return redirect()->back()->with('success', 'Tiket berhasil diperbarui!');
-    }
 }

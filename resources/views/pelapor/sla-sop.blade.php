@@ -35,7 +35,7 @@
                     $searchText = strtolower(
                         $service->name . ' ' .
                         $service->service_code . ' ' .
-                        ($service->department->name ?? '')
+                        ($service->department_name ?? '')
                     );
                 @endphp
 
@@ -65,7 +65,7 @@
 
                                 <p class="text-xs text-slate-500 mt-1">
                                     <i class="fa-solid fa-building mr-1"></i>
-                                    {{ $service->department->name ?? 'OPD belum ditentukan' }}
+                                    {{ $service->department_name ?? 'OPD belum ditentukan' }}
                                 </p>
 
                                 @if($service->response_time || $service->resolution_time)
@@ -100,8 +100,7 @@
                         <div class="shrink-0">
                             @if($service->sop_file)
                                 <a
-                                    href="{{ asset('storage/' . $service->sop_file) }}"
-                                    target="_blank"
+                                    href="{{ route('sla-sop.download', $service) }}"
                                     class="inline-flex items-center gap-2 px-4 py-2.5 bg-[#052e23] hover:bg-emerald-900 text-amber-400 rounded-xl text-xs font-bold transition shadow-sm"
                                 >
                                     <i class="fa-solid fa-file-pdf"></i>
