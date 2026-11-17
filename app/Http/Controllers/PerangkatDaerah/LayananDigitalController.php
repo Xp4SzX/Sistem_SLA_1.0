@@ -165,7 +165,7 @@ class LayananDigitalController extends Controller
             'type' => 'required|in:pelayanan_publik,administrasi_pemerintahan',
             'description' => 'nullable|string',
             'image' => 'nullable|image|max:5120',
-            'sop_file' => 'nullable|file|max:15360',
+            'sop_file' => 'nullable|mimes:pdf,doc,docx|max:15360',
 
             // Informasi SLA yang sudah ada
             'response_time' => 'nullable|string|max:50',
