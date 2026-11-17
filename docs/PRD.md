@@ -1,136 +1,75 @@
-# Product Requirement Document (PRD)
-## Sistem Pengelolaan SLA & Helpdesk Support Digital
-**Pemerintah Kabupaten Bandung Barat**
+# Spesifikasi Produk
 
-| Metadata | Detail |
-| :--- | :--- |
-| **Document Version** | v1.0.0 |
-| **Status** | Approved / Design Baseline |
-| **Year Focus** | 2026 |
-| **Domain** | SPBE Indikator 19 (Layanan Pusat Bantuan Digital) |
-| **Target User Group** | Masyarakat/ASN (User) & Tim IT Diskominfotik (Admin/Teknisi) |
+## Tujuan dokumen
 
----
+Dokumen ini merangkum fungsi yang tersedia pada aplikasi SLA Helpdesk saat ini berdasarkan route, controller, view, dan migration. Ini bukan daftar fitur rencana atau jaminan bahwa fungsi yang disebut sebagai ide sudah tersedia.
 
-## 1. Executive Summary & Objective
+## Tujuan aplikasi
 
-### 1.1 Latar Belakang
-Sistem SLA & Helpdesk Support Pemkab Bandung Barat dirancang sebagai portal terpadu pengelolaan aduan, masalah teknis, dan permintaan layanan digital di lingkungan Pemkab Bandung Barat. Sistem ini menjadi instrumen utama pemenuhan **Indikator 19 SPBE (Pusat Bantuan Layanan Digital)** untuk mencapai kapabilitas pemantauan dan evaluasi tingkat maturitas tinggi (Level 4–5).
+Menyediakan portal untuk pelaporan dan pemantauan tiket layanan digital serta alat kerja internal bagi admin pusat, perangkat daerah, dan teknisi. Informasi layanan mencakup perangkat daerah pemilik dan dokumen SOP yang dapat diunduh pelapor.
 
-### 1.2 Tujuan Utama
-* **Transparansi & Akuntabilitas:** Memberikan tracking tiket real-time serta visibilitas penanganan masalah teknis bagi pengguna (ASN & Publik).
-* **Kepastian Layanan (SLA Management):** Menjamin waktu tanggap (*response time*) dan waktu penyelesaian (*resolution time*) terukur otomatis sesuai standar SOP.
-* **Kepatuhan SPBE:** Menyediakan modul evaluasi, reviu berkala, serta laporan performa SLA per OPD owner.
+## Peran pengguna
 
----
+| Peran | Fungsi yang tersedia |
+|---|---|
+| Pengunjung | Melihat beranda dan menggunakan halaman pengecekan tiket publik. |
+| Pelapor (`user`) | Mendaftar, masuk, membuat dan melihat tiket, memberi rating, melihat layanan/SLA/SOP, dan mengubah profil. |
+| Admin (`admin`) | Melihat dashboard, seluruh tiket, monitoring SLA lintas perangkat daerah, layanan digital, evaluasi/laporan, dan mengelola akun admin perangkat daerah. |
+| Admin perangkat daerah (`admin_dinas`) | Melihat dashboard, tiket dan layanan perangkat daerahnya, mengelola teknisi, serta melihat evaluasi dan mencetak laporan. |
+| Teknisi (`teknisi`) | Melihat dashboard dan ticketing, lalu memperbarui status serta informasi penanganan tiket. |
 
-## 2. Design System & UI/UX Guidelines
+Pengguna mendaftar sebagai pelapor. Akses admin, admin perangkat daerah, dan teknisi menggunakan akun yang sudah tersedia. Login admin mengarahkan pengguna ke area berdasarkan role.
 
-* **Style Architecture:** Modern Government Tech / Enterprise Portal, Clean UI, High-Contrast.
-* **Color Palette:**
-  * **Primary Deep Navy:** `#0F172A` (Header, Sidebar, Core Branding)
-  * **Accent Amber Gold:** `#F59E0B` (Highlights, Secondary Actions)
-  * **Background Neutral:** `#F8FAFC` (Light Gray Canvas)
-  * **Surface/Card:** `#FFFFFF` (White)
-* **Status & Alert Badges:**
-  * **Compliant / Resolved:** `#10B981` (Green)
-  * **In Progress / Active:** `#3B82F6` (Blue)
-  * **Warning / Action Needed:** `#F59E0B` (Yellow)
-  * **Breached / Urgent / Overdue:** `#EF4444` (Red)
-* **Typography & Geometry:**
-  * Font Family: `Inter` atau `Plus Jakarta Sans`
-  * Corner Radius: `12px` (Cards, Inputs, Buttons, Modals)
-  * Visual Elevation: Subtle Soft Shadows (`0px 4px 6px -1px rgba(0,0,0,0.05)`)
+## Alur dan kemampuan utama
 
----
+### Pelapor
 
-## 3. User Roles & Access Matrix
+1. Melihat layanan digital di beranda.
+2. Mendaftar menggunakan nama, NIK 16 digit, nomor telepon/WhatsApp, email, dan password.
+3. Membuat tiket dengan layanan, jenis permintaan, judul, deskripsi, prioritas, dan lampiran yang didukung formulir.
+4. Melihat daftar dan detail tiket serta memberikan rating.
+5. Melihat daftar layanan dan SLA/SOP. SOP tersedia melalui unduhan jika file telah diunggah untuk layanan tersebut.
 
-| Role | Core Capabilities |
-| :--- | :--- |
-| **Public / Guest** | Meneropong katalog layanan, cek status tiket via search bar, baca SOP & FAQ, akses registrasi/login. |
-| **Registered User (ASN / Publik)** | Membuat tiket aduan, memantau *SLA countdown bar*, menerima notifikasi, memberikan konfirmasi & rating bintang (1-5). |
-| **Helpdesk / Agent Teknisi** | Memproses tiket, memperbarui log penanganan, mengubah status tiket, memungut lampiran pendukung. |
-| **Admin System / Executive** | Pengaturan Master Layanan, Konfigurasi Target SLA/SOP, Akses Dashboard Eksekutif SPBE Indikator 19, Audit & Reviu Evaluasi. |
+Pada panel “Lampiran Tiket” di halaman pelapor, gambar tidak ditampilkan; tautan lampiran non-gambar tetap dapat tersedia.
 
----
+### Admin
 
-## 4. Detailed Feature Specifications & Functional Requirements
+- Melihat ringkasan dashboard dan grafik tiket.
+- Melihat daftar tiket lintas perangkat daerah, mencari/filter tiket, dan membuka detail baca-saja. Admin tidak mengubah status tiket dari detail ini.
+- Memantau layanan dan tiket dari seluruh perangkat daerah, dengan filter perangkat daerah dan status layanan, KPI kepatuhan, serta grafik bulanan.
+- Menambah, mengubah, dan menghapus layanan digital. Form layanan mendukung unggah SOP PDF/DOC/DOCX dan mempertahankan SOP lama saat form edit disimpan tanpa file baru.
+- Membuka evaluasi dan halaman laporan.
+- Mengelola akun admin perangkat daerah.
 
-### 4.1 Modul User Flow
+### Admin perangkat daerah dan teknisi
 
-#### A. Public Landing Page
-* **Header Navigation:** Logo "SLA Pemkab Bandung Barat", Menu (`Home`, `Layanan`, `Cek Tiket`, `SOP`, `FAQ`), CTA (`Masuk`, `Buat Laporan`).
-* **Hero Banner:** Headline *"Fasilitas Dukungan Pengguna Layanan Digital Pemerintah"*, Subheadline, & Global Search Bar (*Live search* layanan/nomor tiket).
-* **Summary Stats (4 Grid Cards):** Total Layanan Digital, % Kepatuhan SLA (Target 99.9%), Rata-rata Respons (<30 Menit), Total Tiket Selesai.
-* **Featured Digital Services Grid:** Card layanan (Nama Layanan, Badges Jenis Layanan, Indicator Uptime Realtime, Button "Buat Tiket").
-* **Process Flow Section (4-Step Infographic):**
-  1. *Buat Tiket*
-  2. *Verifikasi Sistem/Admin*
-  3. *Penanganan & Penghitungan SLA*
-  4. *Penyelesaian & Umpan Balik*
-* **Footer:** Logo Resmi Pemkab Bandung Barat, Contact Center, Copyright 2026.
+- Data tiket dan layanan pada area perangkat daerah disaring berdasarkan nama perangkat daerah.
+- Admin perangkat daerah dapat memperbarui status tiket, mengelola layanan dan SOP, mengelola akun teknisi, serta mencetak evaluasi.
+- Teknisi dapat memperbarui status, nama teknisi, catatan penanganan, dan mengunggah berkas penanganan.
 
-#### B. Authentication Module (Split Screen Layout)
-* **Left Canvas (Brand Accent):** Background Deep Navy, Graphic Visual *"Transparansi & Akuntabilitas Digital"*, Infocard SPBE Indikator 19.
-* **Right Canvas (Tabbed Form):**
-  * **Tab Login:** Input Credential (Email/NIK/NIP), Input Password, Checkbox *"Ingat Saya"*, Link *"Lupa Password"*, Primary CTA *"Masuk"*.
-  * **Tab Register:** Input Nama Lengkap, NIK/NIP, Email, Nomor WhatsApp, Password Validation, Checkbox Syarat & Ketentuan, Primary CTA *"Daftar"*.
+## Aturan SLA yang terlihat pada aplikasi
 
-#### C. User Dashboard & Ticket Tracking
-* **Layout Scaffolding:** Persistent Left Sidebar Navigation & Sticky Topbar (Search, Bell Notification, Profile "Arrafi Hilmi").
-* **Key Metric Widgets:** Total Tiket (8), Diproses (2 - Blue), Selesai (5 - Green), Rating Pending (1 - Yellow).
-* **Main Data Table (Tiket Saya):**
-  * Columns: *No. Tiket* (`SLA-20260814-00001`), *Kategori Layanan*, *Judul Masalah*, *Priority Badge* (Low/Med/High/Urgent), *Status Badge*, *SLA Countdown Bar*, *Action Button*.
-* **Ticket Detail Drawer (Slide-Over Panel):**
-  * Vertical Workflow Stepper: `Submitted` $\rightarrow$ `Verified` $\rightarrow$ `Assigned` $\rightarrow$ `In Progress` $\rightarrow$ `Resolved` $\rightarrow$ `Closed`.
-  * SLA Tracker Metrics: Realisasi vs Target Waktu Respon & Penyelesaian.
-  * Catatan Solusi dari Admin/Teknisi.
-  * Interactive Modal/Form: *"Konfirmasi & Rating Layanan (1–5 Stars)"*.
+- Admin ticketing dan monitoring menghitung indikator berdasarkan batas waktu 8 jam dan mengelompokkan tiket sebagai sesuai, mendekati, atau melewati batas.
+- Tampilan ticketing perangkat daerah menggunakan `services.jangka_waktu` bila tersedia, dengan fallback 8 jam.
+- Perhitungan dashboard teknisi menggunakan data tiket untuk ringkasan dan grafik.
 
----
+Angka di atas menjelaskan perilaku implementasi saat ini; bukan konfigurasi SLA global yang dapat diubah dari antarmuka. Perhitungan dapat berbeda antarhalaman.
 
-### 4.2 Modul Admin Flow
+## Status dan data tiket
 
-#### A. Helpdesk Management Dashboard
-* **Sidebar Portal Admin:** Logo "SLA Admin Portal", Dashboard, Kelola Tiket, Kelola Layanan, SLA & SOP, Review SLA, Users, Audit Log.
-* **Topbar Widget:** System Health Monitor (e.g., Uptime 99.9%), Global Search, Admin Identity.
-* **KPI Metrics:** Total Diterima (34), Unassigned (5 - Red Warning), Dalam Penanganan (19), Selesai (6), Breached/Overdue (5 - Red Alert).
-* **Operational Ticket Table:**
-  * Multi-Filter Controls: Filter Layanan, Kategori Kebutuhan (*Backend, UI/UX, Network, Hardware*), Prioritas, SLA Status (*On Track, Warning, Overdue*).
-  * Data Fields: Checkbox Batch Operations, No. Tiket, Identity Pengirim, Nama Layanan, Badge Prioritas, Realtime SLA Timer, Assigned Agent Avatar, Badge Status, Quick Action Dropdown.
-* **Ticket Action Modal:** Visualisasi Detail Kendala, File Attachment Viewer, Input Form (*Kategori, Adjust Prioritas, Assignment Penanggung Jawab, Input Progress Log*), CTA Actions (*In Progress, Resolve Ticket, Reject Report*).
+Tabel tiket menyimpan status sebagai string. Nilai yang dipakai kode mencakup `submitted`, `verified`, `assigned`, `in_progress`, `resolved`, `completed`, dan `closed`; beberapa halaman juga mengenali `process`. Jenis permintaan yang dibatasi di skema adalah `pengajuan_layanan` dan `kendala_teknis`.
 
-#### B. Executive SLA Monitoring Dashboard (SPBE Indikator 19)
-* **Top Controls:** Dynamic OPD/Layanan Dropdown Filter & Date Range Picker.
-* **Strategic Header Cards:**
-  1. Overall SLA Compliance % (e.g., 94.2%)
-  2. Response Compliance % (96%)
-  3. Resolution Compliance % (92%)
-  4. System Uptime Target (99.9%)
-  5. Total Overdue Incident Count (20)
-* **Analytics Visualizations (2x2 Grid):**
-  1. *Line Chart:* Trend Performa SLA vs Volume Tiket Masuk (Bulanan).
-  2. *Donut Chart:* Distibusi Tiket Belum Selesai Berdasarkan Prioritas.
-  3. *Bar Chart:* Tingkat Kepatuhan SLA per Sistem Layanan Digital.
-  4. *Bar Chart:* Volume Tiket Berdasarkan Kategori (*Network, Software, Hardware, Database*).
-* **SLA Health Table:** Master Layanan, OPD Penanggung Jawab, Target vs Realisasi Uptime, Target vs Realisasi Response, Target vs Realisasi Resolution, Index Kepatuhan %, Badge Status Performance.
+## Batasan yang diketahui
 
-#### C. Master Management & Evaluation Module
-* **Module Layout:** Tabbed Layout `[1. Master Layanan]` | `[2. SLA & SOP]` | `[3. Reviu & Evaluasi SLA]`.
-* **Tab 1 (Master Layanan Table):** ID Layanan, Nama Layanan, Tipe Layanan (*Pelayanan Publik / Administrasi Pemerintahan*), OPD Owner, Status Aktif, Action Menu (Edit/Disable).
-* **Tab 2 (SLA & SOP Configuration Form):**
-  * Select Layanan, Input Target Uptime (%), Input Target Response Time (Menit/Jam), Input Target Resolution Time (Jam/Hari).
-  * File Drag & Drop Component: Upload Dokumen SOP Resmi (`.pdf`).
-  * Date Picker: Tanggal Berlaku Efektif & Jadwal Reviu Periodik.
-* **Tab 3 (Audit Form & Log Indikator 19 Level 4 & 5):**
-  * Audit Input Form: Tanggal Evaluation, Layanan Terkait, Temuan Evaluasi, Kendala Utama, Rekomendasi Perbaikan, Rencana Tindak Lanjut.
-  * Historical Reports Table: List Dokumen Evaluasi Periodik dengan Fitur *Download Report (.pdf)* dan *Progress Indicator Tracking* (e.g., *"Tindak Lanjut: 60%"*).
+- Route area dibungkus middleware `auth`, tetapi pembatasan role tidak diterapkan melalui middleware role yang konsisten pada setiap grup. Login admin melakukan pemeriksaan role dan redirect, namun dokumentasi ini tidak menyatakan isolasi akses sebagai kontrol yang terjamin.
+- Monitoring admin memakai aturan waktu yang dihitung di controller; target SLA yang tersimpan pada `service_slas` tidak menjadi satu-satunya sumber perhitungan di semua halaman.
+- Belum ada tabel migration `sla_evaluations`; halaman evaluasi bukan bukti adanya rekaman evaluasi persisten.
+- Dalam route/migration saat ini tidak ditemukan modul notifikasi, audit log tersendiri, atau manajemen kategori terpisah.
+- Daftar pengembangan di atas tidak dimaksudkan sebagai rekomendasi keamanan atau spesifikasi fitur baru.
 
----
+## Sumber acuan implementasi
 
-## 5. Non-Functional Requirements (NFR)
-
-* **Performance:** Halaman dashboard harus mampu memuat data tabular & grafik visualisasi dalam waktu $<1.5$ detik.
-* **Accessibility & Responsiveness:** UI didesain fully responsive (Desktop 1440px, Tablet 768px, Mobile 375px) mengacu pada standar aksesibilitas WCAG 2.1 AA.
-* **Data Integrity & Auditability:** Setiap perubahan status tiket, penetapan teknisi, dan pembaruan dokumen evaluasi wajib tercatat dalam *System Audit Log* yang immutable.
+- Route: `routes/web.php`
+- Skema: `database/migrations/`
+- Antarmuka: `resources/views/`
+- Perilaku: `app/Http/Controllers/`
