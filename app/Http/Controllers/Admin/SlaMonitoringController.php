@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\DinasAdmin; // Menggunakan DinasAdmin sebagai pengganti Department
+use App\Models\DinasAdmin;
 use App\Models\Service;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
@@ -14,30 +14,42 @@ class SlaMonitoringController extends Controller
 {
     public function index(Request $request): View
     {
-        // 1. Query Dasar Tiket dengan Filter
-        // Karena relasi department pada user sudah dihapus, filter disesuaikan jika diperlukan
-        $ticketQuery = Ticket::with(['user', 'service']);
+        $validated = $request->validate([
+            'department_id' => ['nullable', 'integer', 'exists:dinas_admins,id'],
+            'service_status' => ['nullable', 'in:active,maintenance'],
+        ]);
 
-        if ($request->filled('department_id')) {
-            // Disesuaikan dengan struktur database baru jika ingin memfilter berdasarkan dinas
-            $ticketQuery->whereHas('user', function ($q) use ($request) {
-                $q->where('id', $request->department_id);
-            });
-        }
+        $departments = DinasAdmin::select('id', 'nama_dinas as name', 'nama_dinas')
+            ->orderBy('nama_dinas')
+            ->get();
+        $selectedDepartment = $departments->firstWhere('id', (int) ($validated['department_id'] ?? 0));
+        $serviceStatus = $validated['service_status'] ?? null;
 
-        if ($request->filled('service_status')) {
-            $ticketQuery->whereHas('service', function ($q) use ($request) {
-                $q->where('status', $request->service_status);
-            });
-        }
+        $serviceFilters = function ($query) use ($selectedDepartment, $serviceStatus) {
+            if ($selectedDepartment) {
+                $query->where('department_name', $selectedDepartment->nama_dinas);
+            }
 
-        $tickets = $ticketQuery->latest()->get();
+            if ($serviceStatus) {
+                $query->where('status', $serviceStatus);
+            }
+        };
 
-        // 2. Logika Hitung SLA Tiket (Batas SLA = 8 Jam)
+        $services = Service::query()
+            ->withCount('tickets')
+            ->where($serviceFilters)
+            ->orderBy('name')
+            ->get();
+
+        $tickets = Ticket::query()
+            ->whereHas('service', $serviceFilters)
+            ->latest()
+            ->get();
+
         $onTrackCount = 0;
         $warningCount = 0;
         $overdueCount = 0;
-        $maxHours = 8; 
+        $maxHours = 8;
         $now = Carbon::now();
 
         foreach ($tickets as $ticket) {
@@ -65,14 +77,13 @@ class SlaMonitoringController extends Controller
         }
 
         $totalTickets = $tickets->count();
-        
-        // Persentase Kepatuhan SLA
-        $complianceRate = $totalTickets > 0 
-            ? round((($totalTickets - $overdueCount) / $totalTickets) * 100, 1) 
+
+        $complianceRate = $totalTickets > 0
+            ? round((($totalTickets - $overdueCount) / $totalTickets) * 100, 1)
             : 100;
 
         $kpi = [
-            'services'   => Service::where('status', '!=', 'disabled')->count(),
+            'services'   => $services->where('status', '!=', 'disabled')->count(),
             'tickets'    => $totalTickets,
             'on_track'   => $onTrackCount,
             'warning'    => $warningCount,
@@ -80,21 +91,16 @@ class SlaMonitoringController extends Controller
             'compliance' => $complianceRate,
         ];
 
-        // 3. Data Grafik Batang Real-time (Jumlah Tiket Per Bulan di Tahun Berjalan)
-        $monthlyTickets = Ticket::selectRaw('EXTRACT(MONTH FROM created_at) as month, COUNT(*) as count')
-            ->whereRaw('EXTRACT(YEAR FROM created_at) = ?', [date('Y')])
-            ->groupBy('month')
-            ->pluck('count', 'month')
-            ->toArray();
+        $monthlyTickets = $tickets
+            ->filter(fn ($ticket) => Carbon::parse($ticket->created_at)->year === $now->year)
+            ->groupBy(fn ($ticket) => Carbon::parse($ticket->created_at)->month)
+            ->map->count()
+            ->all();
 
         $chartMonthlyData = [];
         for ($m = 1; $m <= 12; $m++) {
             $chartMonthlyData[] = $monthlyTickets[$m] ?? 0;
         }
-
-        // 4. Data Dropdown Filter & Ringkasan Layanan (Menggunakan DinasAdmin dan menghapus relasi department lama)
-        $departments = DinasAdmin::select('id', 'nama_dinas as name')->orderBy('nama_dinas')->get();
-        $services = Service::with(['tickets'])->get();
 
         return view('admin.sla-monitoring', compact(
             'tickets',

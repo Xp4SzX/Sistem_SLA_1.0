@@ -122,6 +122,7 @@
                         <tr class="bg-slate-50 text-slate-600 text-xs font-semibold border-b border-slate-200">
                             <th class="py-3.5 px-3">Id Ticket</th>
                             <th class="py-3.5 px-3">Layanan</th>
+                            <th class="py-3.5 px-3">Perangkat Daerah</th>
                             <th class="py-3.5 px-3">Judul Kendala</th>
                             <th class="py-3.5 px-3">Pelapor</th>
                             <th class="py-3.5 px-3">Kategori</th>
@@ -164,6 +165,7 @@
                                         {{ $ticket->ticket_no ?? 'SLA-'.$ticket->id }}
                                     </td>
                                     <td class="py-3.5 px-3 font-medium">{{ $ticket->service->name ?? '-' }}</td>
+                                    <td class="py-3.5 px-3 min-w-40">{{ $ticket->service->department_name ?? $ticket->user->department_name ?? '-' }}</td>
                                     <td class="py-3.5 px-3 max-w-xs truncate font-bold text-slate-900">{{ $ticket->title ?? '-' }}</td>
                                     <td class="py-3.5 px-3">{{ $ticket->user->name ?? 'Pelapor' }}</td>
                                     <td class="py-3.5 px-3">
@@ -220,7 +222,7 @@
                             @endforeach
                         @else
                             <tr>
-                                <td colspan="11" class="text-center py-6 text-slate-400">Belum ada tiket yang terdaftar.</td>
+                                <td colspan="12" class="text-center py-6 text-slate-400">Belum ada tiket yang terdaftar.</td>
                             </tr>
                         @endif
                     </tbody>

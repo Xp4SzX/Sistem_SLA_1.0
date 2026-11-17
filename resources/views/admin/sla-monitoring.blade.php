@@ -157,10 +157,10 @@
                             <tr class="hover:bg-slate-50/80 transition">
                                 <td class="py-3 px-4 text-center">{{ $index + 1 }}</td>
                                 <td class="py-3 px-4 font-bold text-slate-800">{{ $service->name }}</td>
-                                <td class="py-3 px-4">{{ $service->department->name ?? 'Dinas Komunikasi, Informatika dan Statistik' }}</td>
-                                <td class="py-3 px-4 text-center font-bold">{{ $service->tickets->count() }}</td>
+                                <td class="py-3 px-4">{{ $service->department_name ?: 'Pemerintah Daerah' }}</td>
+                                <td class="py-3 px-4 text-center font-bold">{{ $service->tickets_count }}</td>
                                 <td class="py-3 px-4 text-center">
-                                    <span class="px-2.5 py-1 {{ $service->status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }} font-semibold text-[10px] rounded-full">
+                                    <span class="px-2.5 py-1 {{ $service->status === 'active' ? 'bg-emerald-100 text-emerald-800' : ($service->status === 'disabled' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800') }} font-semibold text-[10px] rounded-full">
                                         {{ ucfirst($service->status) }}
                                     </span>
                                 </td>
