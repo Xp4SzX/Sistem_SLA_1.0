@@ -62,9 +62,31 @@ class DashboardController extends Controller
         $kepatuhanSlaNum = $totalTicket > 0 ? max(0, round((($totalTicket - $melewatiSla) / $totalTicket) * 100)) : 100;
         $kepatuhanSla = $kepatuhanSlaNum . '%';
 
-        $rekapData = array_fill(0, 12, 0); 
-        $prioritasValues = [0, 0, 0, 0];
-        $prioritas = ['Urgent' => '0%', 'High' => '0%', 'Medium' => '0%', 'Low' => '0%'];
+        $rekapData = array_fill(0, 12, 0);
+        $currentYear = Carbon::now()->year;
+
+        foreach ($tickets as $ticket) {
+            if ($ticket->created_at) {
+                $createdAt = Carbon::parse($ticket->created_at);
+                if ($createdAt->year === $currentYear) {
+                    $rekapData[$createdAt->month - 1]++;
+                }
+            }
+        }
+
+        $pUrgent = $tickets->filter(fn ($ticket) => strtolower((string) $ticket->priority) === 'urgent')->count();
+        $pHigh = $tickets->filter(fn ($ticket) => strtolower((string) $ticket->priority) === 'high')->count();
+        $pMedium = $tickets->filter(fn ($ticket) => strtolower((string) $ticket->priority) === 'medium')->count();
+        $pLow = $tickets->filter(fn ($ticket) => strtolower((string) $ticket->priority) === 'low')->count();
+
+        $prioritasValues = [$pUrgent, $pHigh, $pMedium, $pLow];
+        $totalPriority = max($totalTicket, 1);
+        $prioritas = [
+            'Urgent' => round(($pUrgent / $totalPriority) * 100) . '%',
+            'High' => round(($pHigh / $totalPriority) * 100) . '%',
+            'Medium' => round(($pMedium / $totalPriority) * 100) . '%',
+            'Low' => round(($pLow / $totalPriority) * 100) . '%',
+        ];
         
         // Hitung total layanan khusus untuk dinas ini
         $totalLayananDinas = Service::whereRaw('LOWER(department_name) = ?', [strtolower(trim($departmentName))])->count();

@@ -8,7 +8,7 @@
     <!-- Tailwind CSS & FontAwesome -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link rel="icon" type="image/png" href="{{ asset('images/logo-kbb.png') }}">
     {{ $scripts ?? '' }}
 </head>
 <body class="bg-slate-100 font-sans antialiased">
